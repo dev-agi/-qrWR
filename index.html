@@ -4,6 +4,44 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ziyaretçi Sayacı</title>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+        import { getDatabase, ref, get, set, onValue } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyB-eq-kva0L2BBbNI7ulANCnRwTT39BqXs",
+            authDomain: "counter-ddf61.firebaseapp.com",
+            projectId: "counter-ddf61",
+            storageBucket: "counter-ddf61.firebasestorage.app",
+            messagingSenderId: "41522309116",
+            appId: "1:41522309116:web:25174c2d067cd68cb0f479",
+            measurementId: "G-8QKELDJZHX"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const counterRef = ref(db, "visitor_count");
+
+        const STORAGE_KEY = 'visited_time';
+        const now = Date.now();
+        const lastVisit = localStorage.getItem(STORAGE_KEY);
+
+        onValue(counterRef, (snapshot) => {
+            if (snapshot.exists()) {
+                document.getElementById('total-visits').textContent = snapshot.val();
+            }
+        });
+
+        if (!lastVisit || now - lastVisit > 24 * 60 * 60 * 1000) {
+            get(counterRef).then((snapshot) => {
+                let totalVisits = snapshot.exists() ? snapshot.val() : 0;
+                totalVisits++;
+                set(counterRef, totalVisits);
+                document.getElementById('your-number').textContent = totalVisits;
+                localStorage.setItem(STORAGE_KEY, now);
+            });
+        }
+    </script>
     <style>
         body {
             font-family: 'Arial', sans-serif;
@@ -33,25 +71,7 @@
 <body>
     <div class="counter-box">
         <h1>Bu siteye toplamda <span id="total-visits">0</span> kişi uğradı.</h1>
-        <h2>Ve sen <span id="your-number">0</span>. kişi olarak giriş yaptın!</h2>
+        <h2>Ve sen <span id="your-number">0</span>. kişi olarak giriş yaptın!!</h2>
     </div>
-    <script>
-        const STORAGE_KEY = 'visited_time';
-        const COUNT_KEY = 'visitor_count';
-        const now = Date.now();
-        const lastVisit = localStorage.getItem(STORAGE_KEY);
-
-        let totalVisits = localStorage.getItem(COUNT_KEY);
-        totalVisits = totalVisits ? parseInt(totalVisits) : 0;
-
-        if (!lastVisit || now - lastVisit > 24 * 60 * 60 * 1000) {
-            totalVisits++;
-            localStorage.setItem(STORAGE_KEY, now);
-            localStorage.setItem(COUNT_KEY, totalVisits);
-        }
-
-        document.getElementById('total-visits').textContent = totalVisits;
-        document.getElementById('your-number').textContent = totalVisits;
-    </script>
 </body>
 </html>
