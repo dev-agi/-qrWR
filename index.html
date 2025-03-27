@@ -39,6 +39,19 @@
                 document.getElementById('your-number').textContent = userVisitNumber;
             }
         });
+
+        function resetCounter() {
+            const password = prompt("Admin şifresini girin:");
+            if (password === "admin123") { 
+                set(counterRef, 0).then(() => {
+                    localStorage.removeItem(VISIT_KEY);
+                    alert("Sayaç sıfırlandı!");
+                    location.reload();
+                });
+            } else {
+                alert("Yanlış şifre!");
+            }
+        }
     </script>
     <style>
         body {
@@ -51,6 +64,7 @@
             color: white;
             text-align: center;
             overflow: hidden;
+            flex-direction: column;
         }
         .counter-box {
             background: rgba(255, 255, 255, 0.1);
@@ -59,6 +73,20 @@
             backdrop-filter: blur(10px);
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
             animation: fadeIn 1.5s ease-in-out;
+            margin-bottom: 20px;
+        }
+        .admin-button {
+            display: none;
+            padding: 10px 20px;
+            background: red;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .admin-button:hover {
+            background: darkred;
         }
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(-20px); }
@@ -71,5 +99,11 @@
         <h1>Bu siteye toplamda <span id="total-visits">0</span> kişi uğradı.</h1>
         <h2>Ve sen <span id="your-number">0</span>. kişi olarak giriş yaptın!</h2>
     </div>
+    <button class="admin-button" onclick="resetCounter()">Sayaçı Sıfırla</button>
+    <script>
+        if (prompt("Admin moduna girmek için şifre girin:") === "admin123") {
+            document.querySelector('.admin-button').style.display = 'block';
+        }
+    </script>
 </body>
 </html>
