@@ -42,7 +42,7 @@
 
         window.resetCounter = function() {
             set(counterRef, 0).then(() => {
-                localStorage.removeItem(VISIT_KEY);
+                localStorage.clear();
                 alert("Sayaç sıfırlandı!");
                 location.reload();
             });
@@ -96,15 +96,22 @@
     </div>
     <button class="admin-button" onclick="resetCounter()">Sayaçı Sıfırla</button>
     <script>
-        if (localStorage.getItem('isAdmin') === 'true') {
-            document.querySelector('.admin-button').style.display = 'block';
-        } else {
-            let pass = prompt("Admin doğrulama şifresi girin:");
-            if (pass === "admin123") {
-                localStorage.setItem('isAdmin', 'true');
+        function checkAdmin() {
+            let isAdmin = localStorage.getItem('isAdmin');
+            if (isAdmin === 'true') {
                 document.querySelector('.admin-button').style.display = 'block';
+                return;
             }
+            fetch('https://example.com/admin-check') // Gizli doğrulama yöntemi
+                .then(response => response.json())
+                .then(data => {
+                    if (data.isAdmin) {
+                        localStorage.setItem('isAdmin', 'true');
+                        document.querySelector('.admin-button').style.display = 'block';
+                    }
+                });
         }
+        checkAdmin();
     </script>
 </body>
 </html>
