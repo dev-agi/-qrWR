@@ -12,7 +12,7 @@
             apiKey: "AIzaSyB-eq-kva0L2BBbNI7ulANCnRwTT39BqXs",
             authDomain: "counter-ddf61.firebaseapp.com",
             projectId: "counter-ddf61",
-            storageBucket: "counter-ddf61.firebasestorage.app",
+            storageBucket: "counter-ddf61.appspot.com",
             messagingSenderId: "41522309116",
             appId: "1:41522309116:web:25174c2d067cd68cb0f479",
             measurementId: "G-8QKELDJZHX"
@@ -33,21 +33,30 @@
             if (!userVisitNumber) {
                 totalVisits++;
                 set(counterRef, totalVisits).then(() => {
-                    localStorage.setItem(VISIT_KEY, totalVisits);
-                    document.getElementById('your-number').textContent = totalVisits;
                     // Kullanıcıyı ziyaretçi listesine ekle
-                    set(ref(db, `visitors/${totalVisits}`), true);
+                    set(ref(db, `visitors/${totalVisits}`), {
+                        timestamp: Date.now()
+                    }).then(() => {
+                        localStorage.setItem(VISIT_KEY, totalVisits);
+                        document.getElementById('your-number').textContent = totalVisits;
+                    });
                 });
             } else {
-                // Kullanıcının listede olup olmadığını kontrol et
-                get(ref(db, `visitors/${userVisitNumber}`)).then((visitorSnapshot) => {
-                    if (!visitorSnapshot.exists()) {
-                        // Eğer listede yoksa, yeni bir numara ata
-                        totalVisits++;
-                        set(counterRef, totalVisits).then(() => {
-                            localStorage.setItem(VISIT_KEY, totalVisits);
-                            document.getElementById('your-number').textContent = totalVisits;
-                            set(ref(db, `visitors/${totalVisits}`), true);
+                // Kullanıcının ziyaret bilgisini kontrol et
+                get(ref(db, `visitors/${userVisitNumber}`)).then((visitorSnap) => {
+                    if (!visitorSnap.exists()) {
+                        // Eğer veritabanında kayıt yoksa, yeni bir numara ver
+                        get(counterRef).then((newSnap) => {
+                            let newTotal = newSnap.exists() ? newSnap.val() : 0;
+                            newTotal++;
+                            set(counterRef, newTotal).then(() => {
+                                set(ref(db, `visitors/${newTotal}`), {
+                                    timestamp: Date.now()
+                                }).then(() => {
+                                    localStorage.setItem(VISIT_KEY, newTotal);
+                                    document.getElementById('your-number').textContent = newTotal;
+                                });
+                            });
                         });
                     } else {
                         document.getElementById('your-number').textContent = userVisitNumber;
@@ -56,25 +65,25 @@
             }
         });
 
+        // Tüm sayacı sıfırla (admin)
         window.resetCounter = function() {
-            set(counterRef, 0).then(() => {
-                localStorage.clear();
-                alert("Sayaç sıfırlandı!");
-                location.reload();
-            });
-        };
-
-        window.resetUserVisit = function() {
-            if (confirm("Ziyaret numaranızı sıfırlamak istediğinize emin misiniz? Bu işlem geri alınamaz!")) {
-                const currentVisitNumber = localStorage.getItem(VISIT_KEY);
-                if (currentVisitNumber) {
-                    // Kullanıcıyı ziyaretçi listesinden kaldır
-                    set(ref(db, `visitors/${currentVisitNumber}`), null).then(() => {
+            if (confirm("Tüm ziyaretçi verilerini sıfırlamak istediğinize emin misiniz?")) {
+                set(counterRef, 0).then(() => {
+                    set(visitorsRef, null).then(() => {
                         localStorage.removeItem(VISIT_KEY);
-                        alert("Ziyaret numaranız sıfırlandı! Sayfayı yenilediğinizde yeni bir numara alacaksınız.");
+                        alert("Sayaç ve tüm ziyaretçi verileri sıfırlandı!");
                         location.reload();
                     });
-                }
+                });
+            }
+        };
+
+        // Kullanıcının kendi ziyaret numarasını sıfırla
+        window.resetUserVisit = function() {
+            if (confirm("Ziyaret numaranızı sıfırlamak istediğinize emin misiniz? Bu işlem geri alınamaz.")) {
+                localStorage.removeItem(VISIT_KEY);
+                alert("Ziyaret numaranız sıfırlandı. Sayfayı yenilediğinizde yeni bir numara alacaksınız.");
+                location.reload();
             }
         };
     </script>
@@ -101,7 +110,6 @@
             margin-bottom: 20px;
         }
         .admin-button {
-            display: none;
             padding: 10px 20px;
             background: red;
             color: white;
@@ -144,25 +152,17 @@
     </div>
     <div class="button-container">
         <button class="user-button" onclick="resetUserVisit()">Ziyaret Numaramı Sıfırla</button>
-        <button class="admin-button" onclick="resetCounter()">Tüm Sayacı Sıfırla</button>
+        <button class="admin-button" onclick="resetCounter()">Tüm Sayacı Sıfırla (Admin)</button>
     </div>
     <script>
-        function checkAdmin() {
-            let isAdmin = localStorage.getItem('isAdmin');
-            if (isAdmin === 'true') {
-                document.querySelector('.admin-button').style.display = 'block';
-                return;
-            }
-            fetch('https://example.com/admin-check') // Gizli doğrulama yöntemi
-                .then(response => response.json())
-                .then(data => {
-                    if (data.isAdmin) {
-                        localStorage.setItem('isAdmin', 'true');
-                        document.querySelector('.admin-button').style.display = 'block';
-                    }
-                });
+        // Admin kontrolü
+        if (localStorage.getItem('isAdmin') === 'true') {
+            document.querySelector('.admin-button').style.display = 'block';
+        } else {
+            document.querySelector('.admin-button').style.display = 'none';
+            // Admin şifre istemini kaldırdık, artık prompt ile sormuyoruz
+            // Kullanıcı butonu her zaman görünür
         }
-        checkAdmin();
     </script>
 </body>
 </html>
