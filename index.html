@@ -6,7 +6,7 @@
     <title>Ziyaretçi Sayacı</title>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-        import { getDatabase, ref, get, set, onValue } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
+        import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyB-eq-kva0L2BBbNI7ulANCnRwTT39BqXs",
@@ -26,16 +26,16 @@
         const now = Date.now();
         const lastVisit = localStorage.getItem(STORAGE_KEY);
 
-        // Firebase'den mevcut ziyaretçi sayısını al ve ekrana yazdır
         get(counterRef).then((snapshot) => {
             let totalVisits = snapshot.exists() ? snapshot.val() : 0;
             document.getElementById('total-visits').textContent = totalVisits;
-
+            
             if (!lastVisit || now - lastVisit > 24 * 60 * 60 * 1000) {
                 totalVisits++;
-                set(counterRef, totalVisits);
-                document.getElementById('your-number').textContent = totalVisits;
-                localStorage.setItem(STORAGE_KEY, now);
+                set(counterRef, totalVisits).then(() => {
+                    document.getElementById('your-number').textContent = totalVisits;
+                    localStorage.setItem(STORAGE_KEY, now);
+                });
             } else {
                 document.getElementById('your-number').textContent = "(Tekrar giriş yapılamaz)";
             }
