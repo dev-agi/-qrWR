@@ -26,21 +26,20 @@
         const now = Date.now();
         const lastVisit = localStorage.getItem(STORAGE_KEY);
 
-        onValue(counterRef, (snapshot) => {
-            if (snapshot.exists()) {
-                document.getElementById('total-visits').textContent = snapshot.val();
-            }
-        });
+        // Firebase'den mevcut ziyaretçi sayısını al ve ekrana yazdır
+        get(counterRef).then((snapshot) => {
+            let totalVisits = snapshot.exists() ? snapshot.val() : 0;
+            document.getElementById('total-visits').textContent = totalVisits;
 
-        if (!lastVisit || now - lastVisit > 24 * 60 * 60 * 1000) {
-            get(counterRef).then((snapshot) => {
-                let totalVisits = snapshot.exists() ? snapshot.val() : 0;
+            if (!lastVisit || now - lastVisit > 24 * 60 * 60 * 1000) {
                 totalVisits++;
                 set(counterRef, totalVisits);
                 document.getElementById('your-number').textContent = totalVisits;
                 localStorage.setItem(STORAGE_KEY, now);
-            });
-        }
+            } else {
+                document.getElementById('your-number').textContent = "(Tekrar giriş yapılamaz)";
+            }
+        });
     </script>
     <style>
         body {
@@ -71,7 +70,7 @@
 <body>
     <div class="counter-box">
         <h1>Bu siteye toplamda <span id="total-visits">0</span> kişi uğradı.</h1>
-        <h2>Ve sen <span id="your-number">0</span>. kişi olarak giriş yaptın!!</h2>
+        <h2>Ve sen <span id="your-number">0</span>. kişi olarak giriş yaptın!</h2>
     </div>
 </body>
 </html>
