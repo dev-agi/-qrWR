@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ziyaretçi Sayacı</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            color: white;
+            text-align: center;
+            overflow: hidden;
+        }
+        .counter-box {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px 40px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            animation: fadeIn 1.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="counter-box">
+        <h1>Bu siteye toplamda <span id="total-visits">0</span> kişi uğradı.</h1>
+        <h2>Ve sen <span id="your-number">0</span>. kişi olarak giriş yaptın!</h2>
+    </div>
+    <script>
+        const STORAGE_KEY = 'visited_time';
+        const COUNT_KEY = 'visitor_count';
+        const now = Date.now();
+        const lastVisit = localStorage.getItem(STORAGE_KEY);
+
+        let totalVisits = localStorage.getItem(COUNT_KEY);
+        totalVisits = totalVisits ? parseInt(totalVisits) : 0;
+
+        if (!lastVisit || now - lastVisit > 24 * 60 * 60 * 1000) {
+            totalVisits++;
+            localStorage.setItem(STORAGE_KEY, now);
+            localStorage.setItem(COUNT_KEY, totalVisits);
+        }
+
+        document.getElementById('total-visits').textContent = totalVisits;
+        document.getElementById('your-number').textContent = totalVisits;
+    </script>
+</body>
+</html>
