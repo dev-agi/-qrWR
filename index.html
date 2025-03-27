@@ -40,18 +40,13 @@
             }
         });
 
-        function resetCounter() {
-            const password = prompt("Admin şifresini girin:");
-            if (password === "admin123") { 
-                set(counterRef, 0).then(() => {
-                    localStorage.removeItem(VISIT_KEY);
-                    alert("Sayaç sıfırlandı!");
-                    location.reload();
-                });
-            } else {
-                alert("Yanlış şifre!");
-            }
-        }
+        window.resetCounter = function() {
+            set(counterRef, 0).then(() => {
+                localStorage.removeItem(VISIT_KEY);
+                alert("Sayaç sıfırlandı!");
+                location.reload();
+            });
+        };
     </script>
     <style>
         body {
@@ -101,8 +96,14 @@
     </div>
     <button class="admin-button" onclick="resetCounter()">Sayaçı Sıfırla</button>
     <script>
-        if (prompt("Admin moduna girmek için şifre girin:") === "admin123") {
+        if (localStorage.getItem('isAdmin') === 'true') {
             document.querySelector('.admin-button').style.display = 'block';
+        } else {
+            let pass = prompt("Admin doğrulama şifresi girin:");
+            if (pass === "admin123") {
+                localStorage.setItem('isAdmin', 'true');
+                document.querySelector('.admin-button').style.display = 'block';
+            }
         }
     </script>
 </body>
