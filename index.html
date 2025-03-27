@@ -21,6 +21,7 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
         const counterRef = ref(db, "visitor_count");
+        const visitorsRef = ref(db, "visitors");
 
         const VISIT_KEY = 'visit_number';
         let userVisitNumber = localStorage.getItem(VISIT_KEY);
@@ -34,9 +35,24 @@
                 set(counterRef, totalVisits).then(() => {
                     localStorage.setItem(VISIT_KEY, totalVisits);
                     document.getElementById('your-number').textContent = totalVisits;
+                    // Kullanıcıyı ziyaretçi listesine ekle
+                    set(ref(db, `visitors/${totalVisits}`), true);
                 });
             } else {
-                document.getElementById('your-number').textContent = userVisitNumber;
+                // Kullanıcının listede olup olmadığını kontrol et
+                get(ref(db, `visitors/${userVisitNumber}`)).then((visitorSnapshot) => {
+                    if (!visitorSnapshot.exists()) {
+                        // Eğer listede yoksa, yeni bir numara ata
+                        totalVisits++;
+                        set(counterRef, totalVisits).then(() => {
+                            localStorage.setItem(VISIT_KEY, totalVisits);
+                            document.getElementById('your-number').textContent = totalVisits;
+                            set(ref(db, `visitors/${totalVisits}`), true);
+                        });
+                    } else {
+                        document.getElementById('your-number').textContent = userVisitNumber;
+                    }
+                });
             }
         });
 
@@ -46,6 +62,20 @@
                 alert("Sayaç sıfırlandı!");
                 location.reload();
             });
+        };
+
+        window.resetUserVisit = function() {
+            if (confirm("Ziyaret numaranızı sıfırlamak istediğinize emin misiniz? Bu işlem geri alınamaz!")) {
+                const currentVisitNumber = localStorage.getItem(VISIT_KEY);
+                if (currentVisitNumber) {
+                    // Kullanıcıyı ziyaretçi listesinden kaldır
+                    set(ref(db, `visitors/${currentVisitNumber}`), null).then(() => {
+                        localStorage.removeItem(VISIT_KEY);
+                        alert("Ziyaret numaranız sıfırlandı! Sayfayı yenilediğinizde yeni bir numara alacaksınız.");
+                        location.reload();
+                    });
+                }
+            }
         };
     </script>
     <style>
@@ -79,9 +109,27 @@
             border-radius: 10px;
             cursor: pointer;
             font-size: 16px;
+            margin: 5px;
+        }
+        .user-button {
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
         }
         .admin-button:hover {
             background: darkred;
+        }
+        .user-button:hover {
+            background: darkgreen;
+        }
+        .button-container {
+            display: flex;
+            flex-direction: column;
         }
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(-20px); }
@@ -94,7 +142,10 @@
         <h1>Bu siteye toplamda <span id="total-visits">0</span> kişi uğradı.</h1>
         <h2>Ve sen <span id="your-number">0</span>. kişi olarak giriş yaptın!</h2>
     </div>
-    <button class="admin-button" onclick="resetCounter()">Sayaçı Sıfırla</button>
+    <div class="button-container">
+        <button class="user-button" onclick="resetUserVisit()">Ziyaret Numaramı Sıfırla</button>
+        <button class="admin-button" onclick="resetCounter()">Tüm Sayacı Sıfırla</button>
+    </div>
     <script>
         function checkAdmin() {
             let isAdmin = localStorage.getItem('isAdmin');
