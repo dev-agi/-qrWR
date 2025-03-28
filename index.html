@@ -26,7 +26,7 @@
         const VISIT_KEY = 'visit_number';
         let userVisitNumber = localStorage.getItem(VISIT_KEY);
 
-        // Admin fonksiyonunu global yapalım
+        // Admin fonksiyonu
         window.admin = function(password) {
             if (password === "admin123") {
                 localStorage.setItem('isAdmin', 'true');
@@ -39,6 +39,7 @@
             }
         };
 
+        // Ziyaretçi sayacı işlemleri
         get(counterRef).then((snapshot) => {
             let totalVisits = snapshot.exists() ? snapshot.val() : 0;
             document.getElementById('total-visits').textContent = totalVisits;
@@ -46,20 +47,16 @@
             if (!userVisitNumber) {
                 totalVisits++;
                 set(counterRef, totalVisits).then(() => {
-                    // Kullanıcıyı ziyaretçi listesine ekle
                     set(ref(db, `visitors/${totalVisits}`), {
                         timestamp: Date.now()
                     }).then(() => {
                         localStorage.setItem(VISIT_KEY, totalVisits);
                         document.getElementById('your-number').textContent = totalVisits;
-                        document.getElementById('your-number').style.color = "#4CAF50";
                     });
                 });
             } else {
-                // Kullanıcının ziyaret bilgisini kontrol et
                 get(ref(db, `visitors/${userVisitNumber}`)).then((visitorSnap) => {
                     if (!visitorSnap.exists()) {
-                        // Eğer veritabanında kayıt yoksa, yeni bir numara ver
                         get(counterRef).then((newSnap) => {
                             let newTotal = newSnap.exists() ? newSnap.val() : 0;
                             newTotal++;
@@ -69,30 +66,128 @@
                                 }).then(() => {
                                     localStorage.setItem(VISIT_KEY, newTotal);
                                     document.getElementById('your-number').textContent = newTotal;
-                                    document.getElementById('your-number').style.color = "#4CAF50";
                                 });
                             });
                         });
                     } else {
                         document.getElementById('your-number').textContent = userVisitNumber;
-                        document.getElementById('your-number').style.color = "#4CAF50";
                     }
                 });
             }
         });
 
-        // Tüm sayacı sıfırla (admin)
+        // Sayaç sıfırlama
         window.resetCounter = function() {
-            if (confirm("TÜM ziyaretçi verilerini sıfırlamak istediğinize emin misiniz?\n\nBu işlem GERİ ALINAMAZ!")) {
+            if (confirm("TÜM verileri sıfırlamak istediğinize emin misiniz?")) {
                 set(counterRef, 0).then(() => {
                     remove(visitorsRef).then(() => {
                         localStorage.removeItem(VISIT_KEY);
-                        alert("Tüm sayaç ve ziyaretçi verileri sıfırlandı!");
+                        alert("Sayaç sıfırlandı!");
                         location.reload();
                     });
                 });
             }
         };
+
+        // Mini Oyun
+        document.addEventListener('DOMContentLoaded', function() {
+            const canvas = document.createElement('canvas');
+            canvas.id = 'mini-game';
+            canvas.style.position = 'fixed';
+            canvas.style.bottom = '20px';
+            canvas.style.right = '20px';
+            canvas.style.zIndex = '1000';
+            canvas.width = 200;
+            canvas.height = 200;
+            document.body.appendChild(canvas);
+
+            const ctx = canvas.getContext('2d');
+            let score = 0;
+            let gameActive = false;
+            let circle = {
+                x: 100,
+                y: 100,
+                radius: 20,
+                color: '#FF6B6B',
+                speed: 2,
+                dx: 2,
+                dy: 2
+            };
+
+            function drawCircle() {
+                ctx.beginPath();
+                ctx.arc(circle.x, circle.y, circle.radius, 0, Math.PI * 2);
+                ctx.fillStyle = circle.color;
+                ctx.fill();
+                ctx.closePath();
+            }
+
+            function update() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                drawCircle();
+                
+                if (circle.x + circle.radius > canvas.width || circle.x - circle.radius < 0) {
+                    circle.dx = -circle.dx;
+                }
+                
+                if (circle.y + circle.radius > canvas.height || circle.y - circle.radius < 0) {
+                    circle.dy = -circle.dy;
+                }
+                
+                circle.x += circle.dx;
+                circle.y += circle.dy;
+                
+                if (gameActive) {
+                    requestAnimationFrame(update);
+                }
+            }
+
+            canvas.addEventListener('click', function(e) {
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                
+                const distance = Math.sqrt((x - circle.x) ** 2 + (y - circle.y) ** 2);
+                
+                if (distance < circle.radius) {
+                    score++;
+                    circle.radius = Math.max(10, circle.radius - 1);
+                    circle.speed += 0.5;
+                    circle.dx = (circle.dx > 0 ? circle.speed : -circle.speed);
+                    circle.dy = (circle.dy > 0 ? circle.speed : -circle.speed);
+                    circle.color = `hsl(${Math.random() * 360}, 70%, 60%)`;
+                    
+                    document.getElementById('game-score').textContent = `Skor: ${score}`;
+                    
+                    if (score % 5 === 0) {
+                        setTimeout(() => {
+                            circle.radius = 20;
+                        }, 500);
+                    }
+                }
+            });
+
+            const gameControl = document.createElement('div');
+            gameControl.style.position = 'fixed';
+            gameControl.style.bottom = '60px';
+            gameControl.style.right = '20px';
+            gameControl.style.zIndex = '1000';
+            gameControl.style.color = 'white';
+            gameControl.style.textAlign = 'center';
+            gameControl.innerHTML = `
+                <div id="game-score" style="margin-bottom: 10px;">Skor: 0</div>
+                <button id="game-toggle" style="padding: 5px 10px; border-radius: 5px; background: #4CAF50; color: white; border: none; cursor: pointer;">Oyunu Başlat</button>
+            `;
+            document.body.appendChild(gameControl);
+
+            document.getElementById('game-toggle').addEventListener('click', function() {
+                gameActive = !gameActive;
+                this.textContent = gameActive ? 'Oyunu Durdur' : 'Oyunu Başlat';
+                if (gameActive) {
+                    update();
+                }
+            });
+        });
     </script>
     <style>
         body {
@@ -115,6 +210,8 @@
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
             animation: fadeIn 1.5s ease-in-out;
             margin-bottom: 20px;
+            position: relative;
+            z-index: 1;
         }
         .admin-button {
             display: none;
@@ -126,6 +223,8 @@
             cursor: pointer;
             font-size: 16px;
             margin: 5px;
+            position: relative;
+            z-index: 1;
         }
         .admin-button:hover {
             background: darkred;
@@ -138,6 +237,11 @@
             color: #FFD700;
             font-weight: bold;
         }
+        #mini-game {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        }
     </style>
 </head>
 <body>
@@ -147,7 +251,6 @@
     </div>
     <button class="admin-button" onclick="resetCounter()">Tüm Sayacı Sıfırla (Admin)</button>
     <script>
-        // Sayfa yüklendiğinde admin kontrolü yap
         document.addEventListener('DOMContentLoaded', function() {
             if (localStorage.getItem('isAdmin') === 'true') {
                 document.querySelector('.admin-button').style.display = 'block';
