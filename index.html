@@ -25,6 +25,8 @@
 
         const VISIT_KEY = 'visit_number';
         let userVisitNumber = localStorage.getItem(VISIT_KEY);
+        let gameActive = false;
+        let score = 0;
 
         // Admin fonksiyonu
         window.admin = function(password) {
@@ -89,135 +91,85 @@
             }
         };
 
-        // Uzay oyunu
-        window.toggleGame = function() {
-            const game = document.getElementById('space-game');
-            const btn = document.getElementById('game-toggle');
+        // Oyun fonksiyonları
+        function toggleGame() {
+            gameActive = !gameActive;
+            const counterBox = document.querySelector('.counter-box');
+            const adminButton = document.querySelector('.admin-button');
             
-            if (game.style.display === 'block') {
-                game.style.display = 'none';
-                btn.textContent = 'Oyunu Aç';
-                document.querySelectorAll('.planet, #sun').forEach(el => el.style.opacity = '0.7');
-            } else {
-                game.style.display = 'block';
-                btn.textContent = 'Oyunu Kapat';
-                document.querySelectorAll('.planet, #sun').forEach(el => el.style.opacity = '0.2');
+            if (gameActive) {
+                counterBox.style.display = 'none';
+                adminButton.style.display = 'none';
+                document.body.style.cursor = 'crosshair';
                 initGame();
+            } else {
+                counterBox.style.display = 'block';
+                if (localStorage.getItem('isAdmin') === 'true') {
+                    adminButton.style.display = 'block';
+                }
+                document.body.style.cursor = 'default';
+                document.body.onclick = null;
+                document.getElementById('game-score').remove();
             }
-        };
+        }
 
         function initGame() {
-            const canvas = document.getElementById('game-canvas');
-            const ctx = canvas.getContext('2d');
-            canvas.width = 600;
-            canvas.height = 400;
+            score = 0;
+            const gameScore = document.createElement('div');
+            gameScore.id = 'game-score';
+            gameScore.textContent = 'Skor: 0';
+            document.body.appendChild(gameScore);
             
-            let score = 0;
-            let meteors = [];
-            let lastMeteorTime = 0;
-            let ship = {
-                x: canvas.width / 2 - 25,
-                y: canvas.height - 60,
-                width: 50,
-                height: 50,
-                speed: 5,
-                isMoving: false,
-                direction: 0
+            document.body.onclick = function(e) {
+                if (!gameActive) return;
+                
+                // Rastgele renkte bir daire oluştur
+                const circle = document.createElement('div');
+                circle.className = 'click-circle';
+                circle.style.left = (e.clientX - 25) + 'px';
+                circle.style.top = (e.clientY - 25) + 'px';
+                circle.style.backgroundColor = `hsl(${Math.random() * 360}, 70%, 60%)`;
+                
+                // Skor artırma efekti
+                const scoreEffect = document.createElement('div');
+                scoreEffect.className = 'score-effect';
+                scoreEffect.textContent = '+1';
+                scoreEffect.style.left = (e.clientX + 30) + 'px';
+                scoreEffect.style.top = (e.clientY - 10) + 'px';
+                scoreEffect.style.color = circle.style.backgroundColor;
+                
+                document.body.appendChild(circle);
+                document.body.appendChild(scoreEffect);
+                
+                // Animasyon sonunda elementleri kaldır
+                setTimeout(() => {
+                    circle.remove();
+                    scoreEffect.remove();
+                }, 1000);
+                
+                // Skor güncelleme
+                score++;
+                gameScore.textContent = `Skor: ${score}`;
+                
+                // Her 5 skorda bir özel efekt
+                if (score % 5 === 0) {
+                    document.body.style.backgroundColor = `hsl(${Math.random() * 360}, 30%, 15%)`;
+                    setTimeout(() => {
+                        document.body.style.backgroundColor = '';
+                    }, 300);
+                }
             };
-
-            // Uzay gemisi resmi
-            const shipImg = new Image();
-            shipImg.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cGF0aCBmaWxsPSIjZmZmIiBkPSJNNDU2LjcgMTg5LjFsLTE4MS4xLTEzOC5jLTUuMy00LjEtMTIuNC0xLjQtMTUuNyA0LjdsLTM0LjQgNzAuOS0zNC40LTcwLjljLTMuMy02LjEtMTAuNC04LjgtMTUuNy00LjdsLTE4MS4xIDEzOGMtNi4xIDQuNy02LjEgMTQuMiAwIDE4LjlsMTgxLjEgMTM4YzUuMyA0LjEgMTIuNCAxLjQgMTUuNy00LjdsMzQuNC03MC45IDM0LjQgNzAuOWMzLjMgNi4xIDEwLjQgOC44IDE1LjcgNC43bDE4MS4xLTEzOGM2LjEtNC42IDYuMS0xNC4yIDAtMTguOHoiLz48L3N2Zz4=';
-            
-            // Meteor resmi
-            const meteorImg = new Image();
-            meteorImg.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cGF0aCBmaWxsPSIjZmY3ZTdlIiBkPSJNNDY0IDI1NmMwLTEwOS42-OTkuOC0xOTguNS0yMjIuNS0yMTguNXY0MzcuMUMzNjQuMiA0NTQuNSA0NjQgMzY1LjYgNDY0IDI1NnoiLz48L3N2Zz4=';
-            
-            function drawShip() {
-                ctx.drawImage(shipImg, ship.x, ship.y, ship.width, ship.height);
-            }
-            
-            function drawMeteors() {
-                meteors.forEach(meteor => {
-                    ctx.drawImage(meteorImg, meteor.x, meteor.y, meteor.size, meteor.size);
-                });
-            }
-            
-            function update() {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                
-                // Arka plan efekti
-                ctx.fillStyle = 'rgba(15, 12, 41, 0.7)';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                
-                // Gemi hareketi
-                if (ship.isMoving) {
-                    ship.x += ship.direction * ship.speed;
-                    ship.x = Math.max(0, Math.min(canvas.width - ship.width, ship.x));
-                }
-                
-                // Meteor ekleme
-                const now = Date.now();
-                if (now - lastMeteorTime > 1000) {
-                    meteors.push({
-                        x: Math.random() * (canvas.width - 30),
-                        y: -30,
-                        size: Math.random() * 30 + 20,
-                        speed: Math.random() * 3 + 2
-                    });
-                    lastMeteorTime = now;
-                }
-                
-                // Meteor hareketi ve çarpışma kontrolü
-                meteors = meteors.filter(meteor => {
-                    meteor.y += meteor.speed;
-                    
-                    // Çarpışma kontrolü
-                    if (meteor.y + meteor.size > ship.y && 
-                        meteor.x + meteor.size > ship.x && 
-                        meteor.x < ship.x + ship.width) {
-                        score = 0;
-                        document.getElementById('game-score').textContent = `Skor: ${score}`;
-                        return false;
-                    }
-                    
-                    // Skor artırma
-                    if (meteor.y > canvas.height) {
-                        score++;
-                        document.getElementById('game-score').textContent = `Skor: ${score}`;
-                        return false;
-                    }
-                    
-                    return true;
-                });
-                
-                drawMeteors();
-                drawShip();
-                
-                if (document.getElementById('space-game').style.display === 'block') {
-                    requestAnimationFrame(update);
-                }
-            }
-            
-            // Kontroller
-            window.addEventListener('keydown', (e) => {
-                if (e.key === 'ArrowLeft') {
-                    ship.isMoving = true;
-                    ship.direction = -1;
-                } else if (e.key === 'ArrowRight') {
-                    ship.isMoving = true;
-                    ship.direction = 1;
-                }
-            });
-            
-            window.addEventListener('keyup', (e) => {
-                if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-                    ship.isMoving = false;
-                }
-            });
-            
-            update();
         }
+
+        // Arka plana tıklama ile oyun açma
+        document.addEventListener('click', function(e) {
+            if (gameActive) return;
+            
+            // Sayaç kutusu veya butonlara tıklanmadıysa
+            if (!e.target.closest('.counter-box') && !e.target.closest('.admin-button')) {
+                toggleGame();
+            }
+        });
     </script>
     <style>
         body {
@@ -232,91 +184,8 @@
             flex-direction: column;
             background: #0f0c29;
             background: linear-gradient(to bottom, #0f0c29, #302b63, #24243e);
-            position: relative;
-        }
-
-        body::before {
-            content: "";
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: transparent;
-            z-index: -1;
-            animation: twinkle 200s linear infinite;
-        }
-
-        @keyframes twinkle {
-            0% { background-position: 0 0; }
-            100% { background-position: 10000px 5000px; }
-        }
-
-        .planet {
-            position: absolute;
-            border-radius: 50%;
-            z-index: -1;
-            opacity: 0.7;
-            filter: blur(0.5px);
-            transition: opacity 0.5s;
-        }
-
-        #sun {
-            width: 80px;
-            height: 80px;
-            background: radial-gradient(circle, #ffde00, #ff8c00);
-            box-shadow: 0 0 50px #ff8c00;
-            top: 20%;
-            left: 15%;
-            animation: pulse 8s infinite alternate;
-        }
-
-        #planet1 {
-            width: 30px;
-            height: 30px;
-            background: radial-gradient(circle, #4facfe, #00f2fe);
-            top: 50%;
-            left: 10%;
-            animation: orbit1 20s linear infinite;
-        }
-
-        #planet2 {
-            width: 20px;
-            height: 20px;
-            background: radial-gradient(circle, #a6c1ee, #fbc2eb);
-            top: 30%;
-            left: 80%;
-            animation: orbit2 25s linear infinite;
-        }
-
-        #planet3 {
-            width: 40px;
-            height: 40px;
-            background: radial-gradient(circle, #f093fb, #f5576c);
-            bottom: 20%;
-            right: 15%;
-            animation: orbit3 30s linear infinite;
-        }
-
-        @keyframes pulse {
-            0% { transform: scale(1); opacity: 0.8; }
-            50% { transform: scale(1.1); opacity: 1; }
-            100% { transform: scale(1); opacity: 0.8; }
-        }
-
-        @keyframes orbit1 {
-            0% { transform: rotate(0deg) translateX(100px) rotate(0deg); }
-            100% { transform: rotate(360deg) translateX(100px) rotate(-360deg); }
-        }
-
-        @keyframes orbit2 {
-            0% { transform: rotate(0deg) translateX(150px) rotate(0deg); }
-            100% { transform: rotate(360deg) translateX(150px) rotate(-360deg); }
-        }
-
-        @keyframes orbit3 {
-            0% { transform: rotate(0deg) translateX(200px) rotate(0deg); }
-            100% { transform: rotate(360deg) translateX(200px) rotate(-360deg); }
+            transition: background-color 0.3s;
+            cursor: default;
         }
 
         .counter-box {
@@ -328,8 +197,6 @@
             animation: fadeIn 1.5s ease-in-out;
             margin-bottom: 20px;
             border: 1px solid rgba(255, 255, 255, 0.1);
-            position: relative;
-            z-index: 1;
         }
 
         .admin-button {
@@ -351,55 +218,45 @@
             transform: translateY(-2px);
         }
 
-        #space-game {
-            display: none;
+        #game-score {
             position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 600px;
-            height: 400px;
-            background: rgba(0, 0, 0, 0.7);
+            top: 20px;
+            left: 20px;
+            font-size: 24px;
+            color: white;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px 20px;
             border-radius: 10px;
             z-index: 100;
-            border: 2px solid rgba(255, 255, 255, 0.2);
         }
 
-        #game-canvas {
-            width: 100%;
-            height: 100%;
-            border-radius: 8px;
-        }
-
-        #game-controls {
+        .click-circle {
             position: absolute;
-            bottom: -50px;
-            left: 0;
-            width: 100%;
-            text-align: center;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            transform: scale(0);
+            animation: clickAnimation 0.5s forwards;
+            z-index: 10;
         }
 
-        #game-toggle {
-            padding: 8px 20px;
-            background: rgba(76, 175, 80, 0.7);
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 14px;
-            transition: all 0.3s;
-        }
-
-        #game-toggle:hover {
-            background: rgba(76, 175, 80, 0.9);
-        }
-
-        #game-score {
+        .score-effect {
             position: absolute;
-            top: 10px;
-            left: 10px;
-            color: white;
-            font-size: 18px;
+            font-size: 20px;
+            font-weight: bold;
+            animation: scoreAnimation 1s forwards;
+            z-index: 10;
+        }
+
+        @keyframes clickAnimation {
+            0% { transform: scale(0); opacity: 0.5; }
+            50% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(1); opacity: 0; }
+        }
+
+        @keyframes scoreAnimation {
+            0% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(-50px); opacity: 0; }
         }
 
         @keyframes fadeIn {
@@ -419,48 +276,11 @@
     </style>
 </head>
 <body>
-    <!-- Uzay animasyonları -->
-    <div id="sun" class="planet"></div>
-    <div id="planet1" class="planet"></div>
-    <div id="planet2" class="planet"></div>
-    <div id="planet3" class="planet"></div>
-
-    <!-- Yıldızlar -->
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const body = document.body;
-            for (let i = 0; i < 200; i++) {
-                const star = document.createElement('div');
-                star.style.position = 'absolute';
-                star.style.width = Math.random() * 3 + 'px';
-                star.style.height = star.style.width;
-                star.style.backgroundColor = 'white';
-                star.style.borderRadius = '50%';
-                star.style.opacity = Math.random();
-                star.style.left = Math.random() * 100 + '%';
-                star.style.top = Math.random() * 100 + '%';
-                star.style.zIndex = '-1';
-                star.style.animation = `twinkle ${Math.random() * 5 + 3}s infinite alternate`;
-                body.appendChild(star);
-            }
-        });
-    </script>
-
-    <!-- Ana içerik -->
     <div class="counter-box">
         <h1>Bu siteye toplamda <span id="total-visits">0</span> kişi uğradı.</h1>
         <h2>Ve sen <span id="your-number">0</span>. kişi olarak giriş yaptın!</h2>
     </div>
     <button class="admin-button" onclick="resetCounter()">Tüm Sayacı Sıfırla (Admin)</button>
-
-    <!-- Uzay Oyunu -->
-    <div id="space-game">
-        <canvas id="game-canvas"></canvas>
-        <div id="game-score">Skor: 0</div>
-    </div>
-    <div id="game-controls">
-        <button id="game-toggle" onclick="toggleGame()">Oyunu Aç</button>
-    </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
