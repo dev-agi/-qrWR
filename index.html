@@ -102,6 +102,8 @@
         let lastPowerShot = 0;
         let lastNukeTime = 0;
         let showControls = false;
+        let lastSpacePress = 0;
+        let lastCtrlPress = 0;
         
         // Kontroller
 document.addEventListener('keydown', (e) => {
@@ -115,18 +117,20 @@ document.addEventListener('keydown', (e) => {
         return;
     }
 
-    // Ctrl tuşu kontrolü
-    if (e.ctrlKey) {
+    // Space tuşu: Normal ateş
+    if (e.key === ' ') {
         const now = Date.now();
-
-        // Normal ateş
         if (now - lastShot > 150) {
             shoot();
             lastShot = now;
         }
+        lastSpacePress = now;
+    }
 
-        // Çift basım kontrolü (güçlü mermi)
-        if (now - lastCtrlPress < 300 && now - lastPowerShot > 25000) {
+    // Ctrl tuşu: Güçlü mermi (tek basışla)
+    if (e.ctrlKey) {
+        const now = Date.now();
+        if (now - lastPowerShot > 25000) {
             shootPowerBullet();
             lastPowerShot = now;
             updatePowerCooldown();
