@@ -88,106 +88,6 @@
                 });
             }
         };
-
-        // Mini Oyun
-        document.addEventListener('DOMContentLoaded', function() {
-            const canvas = document.createElement('canvas');
-            canvas.id = 'mini-game';
-            canvas.style.position = 'fixed';
-            canvas.style.bottom = '20px';
-            canvas.style.right = '20px';
-            canvas.style.zIndex = '1000';
-            canvas.width = 200;
-            canvas.height = 200;
-            document.body.appendChild(canvas);
-
-            const ctx = canvas.getContext('2d');
-            let score = 0;
-            let gameActive = false;
-            let circle = {
-                x: 100,
-                y: 100,
-                radius: 20,
-                color: '#FF6B6B',
-                speed: 2,
-                dx: 2,
-                dy: 2
-            };
-
-            function drawCircle() {
-                ctx.beginPath();
-                ctx.arc(circle.x, circle.y, circle.radius, 0, Math.PI * 2);
-                ctx.fillStyle = circle.color;
-                ctx.fill();
-                ctx.closePath();
-            }
-
-            function update() {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                drawCircle();
-                
-                if (circle.x + circle.radius > canvas.width || circle.x - circle.radius < 0) {
-                    circle.dx = -circle.dx;
-                }
-                
-                if (circle.y + circle.radius > canvas.height || circle.y - circle.radius < 0) {
-                    circle.dy = -circle.dy;
-                }
-                
-                circle.x += circle.dx;
-                circle.y += circle.dy;
-                
-                if (gameActive) {
-                    requestAnimationFrame(update);
-                }
-            }
-
-            canvas.addEventListener('click', function(e) {
-                const rect = canvas.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
-                
-                const distance = Math.sqrt((x - circle.x) ** 2 + (y - circle.y) ** 2);
-                
-                if (distance < circle.radius) {
-                    score++;
-                    circle.radius = Math.max(10, circle.radius - 1);
-                    circle.speed += 0.5;
-                    circle.dx = (circle.dx > 0 ? circle.speed : -circle.speed);
-                    circle.dy = (circle.dy > 0 ? circle.speed : -circle.speed);
-                    circle.color = `hsl(${Math.random() * 360}, 70%, 60%)`;
-                    
-                    document.getElementById('game-score').textContent = `Skor: ${score}`;
-                    
-                    if (score % 5 === 0) {
-                        setTimeout(() => {
-                            circle.radius = 20;
-                        }, 500);
-                    }
-                }
-            });
-
-            const gameControl = document.createElement('div');
-            gameControl.style.position = 'fixed';
-            gameControl.style.bottom = '60px';
-            gameControl.style.right = '20px';
-            gameControl.style.zIndex = '1000';
-            gameControl.style.color = 'white';
-            gameControl.style.textAlign = 'center';
-            gameControl.innerHTML = `
-                <div id="game-score" style="margin-bottom: 10px;">Skor: 0</div>
-                <button id="game-toggle" style="padding: 5px 10px; border-radius: 5px; background: #4CAF50; color: white; border: none; cursor: pointer;">Oyunu Başlat</button>
-            `;
-            document.body.appendChild(gameControl);
-
-            document.getElementById('game-toggle').addEventListener('click', function() {
-                gameActive = !gameActive;
-                this.textContent = gameActive ? 'Oyunu Durdur' : 'Oyunu Başlat';
-                if (gameActive) {
-                    update();
-                }
-            });
-        });
     </script>
     <style>
         body {
@@ -196,60 +96,184 @@
             justify-content: center;
             align-items: center;
             height: 100vh;
-            background: linear-gradient(135deg, #1e3c72, #2a5298);
             color: white;
             text-align: center;
             overflow: hidden;
             flex-direction: column;
+            background: #0f0c29; /* Koyu uzay rengi */
+            background: linear-gradient(to bottom, #0f0c29, #302b63, #24243e);
+            position: relative;
         }
+
+        /* Yıldızlar için arka plan */
+        body::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: transparent;
+            z-index: -1;
+            animation: twinkle 200s linear infinite;
+        }
+
+        @keyframes twinkle {
+            0% { background-position: 0 0; }
+            100% { background-position: 10000px 5000px; }
+        }
+
+        /* Gezegen animasyonları */
+        .planet {
+            position: absolute;
+            border-radius: 50%;
+            z-index: -1;
+            opacity: 0.7;
+            filter: blur(0.5px);
+        }
+
+        #sun {
+            width: 80px;
+            height: 80px;
+            background: radial-gradient(circle, #ffde00, #ff8c00);
+            box-shadow: 0 0 50px #ff8c00;
+            top: 20%;
+            left: 15%;
+            animation: pulse 8s infinite alternate;
+        }
+
+        #planet1 {
+            width: 30px;
+            height: 30px;
+            background: radial-gradient(circle, #4facfe, #00f2fe);
+            top: 50%;
+            left: 10%;
+            animation: orbit1 20s linear infinite;
+        }
+
+        #planet2 {
+            width: 20px;
+            height: 20px;
+            background: radial-gradient(circle, #a6c1ee, #fbc2eb);
+            top: 30%;
+            left: 80%;
+            animation: orbit2 25s linear infinite;
+        }
+
+        #planet3 {
+            width: 40px;
+            height: 40px;
+            background: radial-gradient(circle, #f093fb, #f5576c);
+            bottom: 20%;
+            right: 15%;
+            animation: orbit3 30s linear infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 0.8; }
+            50% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(1); opacity: 0.8; }
+        }
+
+        @keyframes orbit1 {
+            0% { transform: rotate(0deg) translateX(100px) rotate(0deg); }
+            100% { transform: rotate(360deg) translateX(100px) rotate(-360deg); }
+        }
+
+        @keyframes orbit2 {
+            0% { transform: rotate(0deg) translateX(150px) rotate(0deg); }
+            100% { transform: rotate(360deg) translateX(150px) rotate(-360deg); }
+        }
+
+        @keyframes orbit3 {
+            0% { transform: rotate(0deg) translateX(200px) rotate(0deg); }
+            100% { transform: rotate(360deg) translateX(200px) rotate(-360deg); }
+        }
+
         .counter-box {
             background: rgba(255, 255, 255, 0.1);
-            padding: 20px 40px;
+            padding: 30px 50px;
             border-radius: 15px;
             backdrop-filter: blur(10px);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
             animation: fadeIn 1.5s ease-in-out;
             margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
             position: relative;
             z-index: 1;
         }
+
         .admin-button {
             display: none;
-            padding: 10px 20px;
-            background: red;
+            padding: 12px 25px;
+            background: rgba(255, 0, 0, 0.3);
             color: white;
-            border: none;
+            border: 1px solid rgba(255, 255, 255, 0.2);
             border-radius: 10px;
             cursor: pointer;
             font-size: 16px;
             margin: 5px;
-            position: relative;
-            z-index: 1;
+            backdrop-filter: blur(5px);
+            transition: all 0.3s ease;
         }
+
         .admin-button:hover {
-            background: darkred;
+            background: rgba(255, 0, 0, 0.5);
+            transform: translateY(-2px);
         }
+
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(-20px); }
             to { opacity: 1; transform: translateY(0); }
         }
+
         #your-number {
             color: #FFD700;
             font-weight: bold;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
         }
-        #mini-game {
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 10px;
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+
+        h1, h2 {
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
         }
     </style>
 </head>
 <body>
+    <!-- Gezegenler -->
+    <div id="sun" class="planet"></div>
+    <div id="planet1" class="planet"></div>
+    <div id="planet2" class="planet"></div>
+    <div id="planet3" class="planet"></div>
+
+    <!-- Yıldızlar için script -->
+    <script>
+        // Rastgele yıldızlar oluştur
+        document.addEventListener('DOMContentLoaded', function() {
+            const body = document.body;
+            for (let i = 0; i < 200; i++) {
+                const star = document.createElement('div');
+                star.style.position = 'absolute';
+                star.style.width = Math.random() * 3 + 'px';
+                star.style.height = star.style.width;
+                star.style.backgroundColor = 'white';
+                star.style.borderRadius = '50%';
+                star.style.opacity = Math.random();
+                star.style.left = Math.random() * 100 + '%';
+                star.style.top = Math.random() * 100 + '%';
+                star.style.zIndex = '-1';
+                star.style.animation = `twinkle ${Math.random() * 5 + 3}s infinite alternate`;
+                body.appendChild(star);
+            }
+        });
+    </script>
+
+    <!-- Ana içerik -->
     <div class="counter-box">
         <h1>Bu siteye toplamda <span id="total-visits">0</span> kişi uğradı.</h1>
         <h2>Ve sen <span id="your-number">0</span>. kişi olarak giriş yaptın!</h2>
     </div>
     <button class="admin-button" onclick="resetCounter()">Tüm Sayacı Sıfırla (Admin)</button>
+
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             if (localStorage.getItem('isAdmin') === 'true') {
