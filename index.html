@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ziyaretçi Sayacı</title>
+    <title>Galactic Defender</title>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
         import { getDatabase, ref, get, set, remove } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
@@ -25,8 +25,6 @@
 
         const VISIT_KEY = 'visit_number';
         let userVisitNumber = localStorage.getItem(VISIT_KEY);
-        let gameActive = false;
-        let score = 0;
 
         // Admin fonksiyonu
         window.admin = function(password) {
@@ -91,85 +89,467 @@
             }
         };
 
-        // Oyun fonksiyonları
-        function toggleGame() {
-            gameActive = !gameActive;
-            const counterBox = document.querySelector('.counter-box');
-            const adminButton = document.querySelector('.admin-button');
+        // Uzay oyunu
+        let gameActive = false;
+        let score = 0;
+        let health = 3;
+        let asteroids = [];
+        let shipX = 0;
+        let keys = {};
+        let bullets = [];
+        let powerBullets = [];
+        let lastShot = 0;
+        let lastPowerShot = 0;
+        let lastNukeTime = 0;
+        let showControls = false;
+        
+        // Kontroller
+        document.addEventListener('keydown', (e) => {
+            if (!gameActive) return;
             
-            if (gameActive) {
-                counterBox.style.display = 'none';
-                adminButton.style.display = 'none';
-                document.body.style.cursor = 'crosshair';
-                initGame();
-            } else {
-                counterBox.style.display = 'block';
-                if (localStorage.getItem('isAdmin') === 'true') {
-                    adminButton.style.display = 'block';
-                }
-                document.body.style.cursor = 'default';
-                document.body.onclick = null;
-                document.getElementById('game-score').remove();
+            keys[e.key] = true;
+            
+            // Nuke (Alt tuşu)
+            if (e.key === 'Alt' && Date.now() - lastNukeTime > 480000 && health > 1) {
+                activateNuke();
+                return;
             }
-        }
-
-        function initGame() {
-            score = 0;
-            const gameScore = document.createElement('div');
-            gameScore.id = 'game-score';
-            gameScore.textContent = 'Skor: 0';
-            document.body.appendChild(gameScore);
             
-            document.body.onclick = function(e) {
-                if (!gameActive) return;
+            // Space tuşu kontrolü
+            if (e.key === ' ') {
+                const now = Date.now();
                 
-                // Rastgele renkte bir daire oluştur
-                const circle = document.createElement('div');
-                circle.className = 'click-circle';
-                circle.style.left = (e.clientX - 25) + 'px';
-                circle.style.top = (e.clientY - 25) + 'px';
-                circle.style.backgroundColor = `hsl(${Math.random() * 360}, 70%, 60%)`;
-                
-                // Skor artırma efekti
-                const scoreEffect = document.createElement('div');
-                scoreEffect.className = 'score-effect';
-                scoreEffect.textContent = '+1';
-                scoreEffect.style.left = (e.clientX + 30) + 'px';
-                scoreEffect.style.top = (e.clientY - 10) + 'px';
-                scoreEffect.style.color = circle.style.backgroundColor;
-                
-                document.body.appendChild(circle);
-                document.body.appendChild(scoreEffect);
-                
-                // Animasyon sonunda elementleri kaldır
-                setTimeout(() => {
-                    circle.remove();
-                    scoreEffect.remove();
-                }, 1000);
-                
-                // Skor güncelleme
-                score++;
-                gameScore.textContent = `Skor: ${score}`;
-                
-                // Her 5 skorda bir özel efekt
-                if (score % 5 === 0) {
-                    document.body.style.backgroundColor = `hsl(${Math.random() * 360}, 30%, 15%)`;
-                    setTimeout(() => {
-                        document.body.style.backgroundColor = '';
-                    }, 300);
+                // Normal ateş
+                if (now - lastShot > 150) {
+                    shoot();
+                    lastShot = now;
                 }
-            };
-        }
-
-        // Arka plana tıklama ile oyun açma
-        document.addEventListener('click', function(e) {
-            if (gameActive) return;
+                
+                // Çift basım kontrolü (güçlü mermi)
+                if (now - lastSpacePress < 300 && now - lastPowerShot > 25000) {
+                    shootPowerBullet();
+                    lastPowerShot = now;
+                    updatePowerCooldown();
+                }
+                lastSpacePress = now;
+            }
             
-            // Sayaç kutusu veya butonlara tıklanmadıysa
-            if (!e.target.closest('.counter-box') && !e.target.closest('.admin-button')) {
-                toggleGame();
+            // Kontrol bilgilerini göster/gizle
+            if (e.key === 'Escape') {
+                showControls = !showControls;
+                document.getElementById('controls-info').style.display = showControls ? 'block' : 'none';
             }
         });
+        
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+        
+        document.addEventListener('click', function(e) {
+            if (e.target.closest('.admin-button')) return;
+            if (!gameActive) startSpaceGame();
+        });
+        
+        function updatePowerCooldown() {
+            const powerDisplay = document.getElementById('power-cooldown');
+            if (!powerDisplay) return;
+            
+            powerDisplay.style.width = '0%';
+            powerDisplay.style.transition = 'none';
+            void powerDisplay.offsetWidth;
+            powerDisplay.style.transition = 'width 25s linear';
+            powerDisplay.style.width = '100%';
+        }
+        
+        function updateNukeCooldown() {
+            const nukeDisplay = document.getElementById('nuke-cooldown');
+            if (!nukeDisplay) return;
+            
+            nukeDisplay.style.width = '0%';
+            nukeDisplay.style.transition = 'none';
+            void nukeDisplay.offsetWidth;
+            nukeDisplay.style.transition = 'width 480s linear';
+            nukeDisplay.style.width = '100%';
+        }
+        
+        function startSpaceGame() {
+            gameActive = true;
+            score = 0;
+            health = 3;
+            asteroids = [];
+            bullets = [];
+            powerBullets = [];
+            lastPowerShot = 0;
+            lastNukeTime = 0;
+            
+            // Sayaç ekranını gizle
+            document.querySelector('.counter-box').style.display = 'none';
+            document.querySelector('.admin-button').style.display = 'none';
+            
+            // Oyun alanını hazırla
+            const gameArea = document.createElement('div');
+            gameArea.id = 'game-area';
+            gameArea.innerHTML = `
+                <div class="game-ui">
+                    <div id="score-display">🛰️ ${score}</div>
+                    <div id="health-display">❤️ ${health}</div>
+                    <div id="power-display">
+                        <div class="cooldown-container">
+                            <span>⚡</span>
+                            <div class="cooldown-track">
+                                <div id="power-cooldown" class="cooldown-bar"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="nuke-display">
+                        <div class="cooldown-container">
+                            <span>💣</span>
+                            <div class="cooldown-track">
+                                <div id="nuke-cooldown" class="cooldown-bar"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="controls-info" class="controls-info">
+                        <h3>Kontroller</h3>
+                        <p>WASD/Ok Tuşları: Hareket</p>
+                        <p>SPACE: Ateş</p>
+                        <p>Çift SPACE: Güçlü Mermi</p>
+                        <p>ALT: Nuke (1 can)</p>
+                        <p>ESC: Bu menü</p>
+                    </div>
+                </div>
+                <div id="ship"></div>
+                <div id="nuke-effect"></div>
+            `;
+            document.body.appendChild(gameArea);
+            
+            shipX = window.innerWidth / 2 - 25;
+            updateShipPosition();
+            
+            // Oyun loop'u
+            function gameLoop() {
+                if (!gameActive) return;
+                
+                // Gemi hareketi
+                if ((keys['a'] || keys['ArrowLeft']) && !keys[' ']) {
+                    shipX = Math.max(0, shipX - 7);
+                }
+                if ((keys['d'] || keys['ArrowRight']) && !keys[' ']) {
+                    shipX = Math.min(window.innerWidth - 50, shipX + 7);
+                }
+                updateShipPosition();
+                
+                // Rastgele asteroit ekle
+                if (Math.random() < 0.015) {
+                    createAsteroid();
+                }
+                
+                // Asteroidleri hareket ettir
+                updateAsteroids();
+                
+                // Mermileri hareket ettir
+                updateBullets();
+                
+                // Güçlü mermileri hareket ettir
+                updatePowerBullets();
+                
+                // Cooldown güncellemeleri
+                updatePowerStatus();
+                updateNukeStatus();
+                
+                requestAnimationFrame(gameLoop);
+            }
+            
+            gameLoop();
+        }
+        
+        function activateNuke() {
+            if (health <= 1) return;
+            
+            health--;
+            lastNukeTime = Date.now();
+            updateHealthDisplay();
+            updateNukeCooldown();
+            
+            // Tüm asteroidleri yok et
+            for (let i = asteroids.length - 1; i >= 0; i--) {
+                const asteroid = asteroids[i];
+                createExplosion(asteroid, true);
+                asteroid.element.remove();
+                asteroids.splice(i, 1);
+                score++;
+            }
+            
+            document.getElementById('score-display').textContent = `🛰️ ${score}`;
+            
+            // Nuke efekti
+            const nukeEffect = document.getElementById('nuke-effect');
+            nukeEffect.style.display = 'block';
+            nukeEffect.style.opacity = '1';
+            nukeEffect.style.transform = 'scale(1)';
+            
+            setTimeout(() => {
+                nukeEffect.style.opacity = '0';
+                nukeEffect.style.transform = 'scale(3)';
+                setTimeout(() => {
+                    nukeEffect.style.display = 'none';
+                }, 1000);
+            }, 500);
+            
+            // Cooldown'ları resetle
+            lastPowerShot = Date.now();
+            updatePowerCooldown();
+        }
+        
+        function updatePowerStatus() {
+            const powerStatus = document.querySelector('#power-display .cooldown-container span');
+            if (!powerStatus) return;
+            
+            const now = Date.now();
+            const cooldownLeft = Math.max(0, 25000 - (now - lastPowerShot));
+            
+            if (cooldownLeft > 0) {
+                powerStatus.title = `${Math.ceil(cooldownLeft/1000)}s`;
+            } else {
+                powerStatus.title = "HAZIR";
+            }
+        }
+        
+        function updateNukeStatus() {
+            const nukeStatus = document.querySelector('#nuke-display .cooldown-container span');
+            if (!nukeStatus) return;
+            
+            const now = Date.now();
+            const cooldownLeft = Math.max(0, 480000 - (now - lastNukeTime));
+            
+            if (cooldownLeft > 0) {
+                nukeStatus.title = `${Math.ceil(cooldownLeft/1000)}s`;
+            } else {
+                nukeStatus.title = "HAZIR";
+            }
+        }
+        
+        function updateShipPosition() {
+            const ship = document.getElementById('ship');
+            if (ship) ship.style.left = `${shipX}px`;
+        }
+        
+        function createAsteroid() {
+            const asteroid = document.createElement('div');
+            asteroid.className = 'asteroid';
+            
+            const size = Math.random() * 40 + 30;
+            asteroid.style.width = `${size}px`;
+            asteroid.style.height = `${size}px`;
+            asteroid.style.left = `${Math.random() * (window.innerWidth - size)}px`;
+            asteroid.style.top = `-${size}px`;
+            
+            const shapes = ['shape1', 'shape2', 'shape3'];
+            asteroid.classList.add(shapes[Math.floor(Math.random() * shapes.length)]);
+            
+            document.getElementById('game-area').appendChild(asteroid);
+            asteroids.push({
+                element: asteroid,
+                x: parseFloat(asteroid.style.left),
+                y: -size,
+                size: size,
+                speed: Math.random() * 2 + 1,
+                rotation: Math.random() * 360,
+                rotationSpeed: Math.random() * 2 - 1,
+                destroyed: false
+            });
+        }
+        
+        function shoot() {
+            const bullet = document.createElement('div');
+            bullet.className = 'bullet';
+            bullet.style.left = `${shipX + 25}px`; // Gemi merkezinden ateş
+            bullet.style.bottom = '80px';
+            
+            document.getElementById('game-area').appendChild(bullet);
+            
+            bullets.push({
+                element: bullet,
+                x: shipX + 25,
+                y: window.innerHeight - 80
+            });
+        }
+        
+        function shootPowerBullet() {
+            const bullet = document.createElement('div');
+            bullet.className = 'power-bullet';
+            bullet.style.left = `${shipX + 25}px`; // Gemi merkezinden ateş
+            bullet.style.bottom = '80px';
+            
+            document.getElementById('game-area').appendChild(bullet);
+            
+            powerBullets.push({
+                element: bullet,
+                x: shipX + 25,
+                y: window.innerHeight - 80
+            });
+        }
+        
+        function updateAsteroids() {
+            for (let i = asteroids.length - 1; i >= 0; i--) {
+                const asteroid = asteroids[i];
+                
+                if (asteroid.destroyed) {
+                    asteroids.splice(i, 1);
+                    continue;
+                }
+                
+                asteroid.y += asteroid.speed;
+                asteroid.rotation += asteroid.rotationSpeed;
+                
+                asteroid.element.style.top = `${asteroid.y}px`;
+                asteroid.element.style.transform = `rotate(${asteroid.rotation}deg)`;
+                
+                // Çarpışma kontrolü (gemi ile)
+                if (asteroid.y + asteroid.size > window.innerHeight - 80 &&
+                    asteroid.x + asteroid.size > shipX &&
+                    asteroid.x < shipX + 50) {
+                    
+                    destroyAsteroid(asteroid, false);
+                    takeDamage();
+                }
+                
+                // Ekran dışına çıkan asteroidleri kaldır
+                if (asteroid.y > window.innerHeight + 100) {
+                    asteroid.element.remove();
+                    asteroids.splice(i, 1);
+                }
+            }
+        }
+        
+        function updateBullets() {
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                const bullet = bullets[i];
+                bullet.y -= 8;
+                bullet.element.style.bottom = `${window.innerHeight - bullet.y}px`;
+                
+                // Asteroid vurma kontrolü
+                let bulletHit = false;
+                for (let j = asteroids.length - 1; j >= 0; j--) {
+                    const asteroid = asteroids[j];
+                    
+                    if (!asteroid.destroyed && 
+                        bullet.y < asteroid.y + asteroid.size &&
+                        bullet.y > asteroid.y &&
+                        bullet.x > asteroid.x &&
+                        bullet.x < asteroid.x + asteroid.size) {
+                        
+                        score++;
+                        document.getElementById('score-display').textContent = `🛰️ ${score}`;
+                        destroyAsteroid(asteroid, true);
+                        bulletHit = true;
+                        break;
+                    }
+                }
+                
+                // Ekran dışına çıkan veya asteroid vuran mermileri kaldır
+                if (bulletHit || bullet.y < 0) {
+                    bullet.element.remove();
+                    bullets.splice(i, 1);
+                }
+            }
+        }
+        
+        function updatePowerBullets() {
+            for (let i = powerBullets.length - 1; i >= 0; i--) {
+                const bullet = powerBullets[i];
+                bullet.y -= 4;
+                bullet.element.style.bottom = `${window.innerHeight - bullet.y}px`;
+                
+                // Asteroid vurma kontrolü (güçlü mermi)
+                let asteroidsDestroyed = 0;
+                for (let j = asteroids.length - 1; j >= 0; j--) {
+                    const asteroid = asteroids[j];
+                    
+                    if (!asteroid.destroyed && 
+                        bullet.y < asteroid.y + asteroid.size &&
+                        bullet.y > asteroid.y &&
+                        bullet.x > asteroid.x &&
+                        bullet.x < asteroid.x + asteroid.size) {
+                        
+                        score++;
+                        asteroidsDestroyed++;
+                        document.getElementById('score-display').textContent = `🛰️ ${score}`;
+                        destroyAsteroid(asteroid, true);
+                        
+                        if (asteroidsDestroyed >= 5) break;
+                    }
+                }
+                
+                // Ekran dışına çıkan mermileri kaldır
+                if (bullet.y < 0) {
+                    bullet.element.remove();
+                    powerBullets.splice(i, 1);
+                }
+            }
+        }
+        
+        function destroyAsteroid(asteroid, isShot) {
+            asteroid.destroyed = true;
+            createExplosion(asteroid, isShot);
+            asteroid.element.remove();
+        }
+        
+        function createExplosion(asteroid, isShot) {
+            const rect = asteroid.element.getBoundingClientRect();
+            const color = isShot ? '#FFD700' : '#FF5252';
+            const particleCount = isShot ? 15 : 30;
+            
+            for (let i = 0; i < particleCount; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.backgroundColor = color;
+                particle.style.left = `${rect.left + rect.width/2}px`;
+                particle.style.top = `${rect.top + rect.height/2}px`;
+                
+                document.getElementById('game-area').appendChild(particle);
+                
+                setTimeout(() => {
+                    particle.style.left = `${rect.left + rect.width/2 + (Math.random() * 100 - 50)}px`;
+                    particle.style.top = `${rect.top + rect.height/2 + (Math.random() * 100 - 50)}px`;
+                    particle.style.opacity = '0';
+                    particle.style.transition = `all ${Math.random() * 0.5 + 0.3}s`;
+                }, 10);
+                
+                setTimeout(() => {
+                    particle.remove();
+                }, 1000);
+            }
+        }
+        
+        function takeDamage() {
+            health--;
+            updateHealthDisplay();
+            
+            if (health <= 0) {
+                endGame();
+                alert(`Oyun bitti! Skorunuz: ${score}`);
+            }
+        }
+        
+        function updateHealthDisplay() {
+            const healthDisplay = document.getElementById('health-display');
+            if (healthDisplay) {
+                healthDisplay.innerHTML = `❤️ ${health}`;
+            }
+        }
+        
+        // Oyunu bitirme fonksiyonu
+        window.endGame = function() {
+            gameActive = false;
+            const gameArea = document.getElementById('game-area');
+            if (gameArea) gameArea.remove();
+            
+            document.querySelector('.counter-box').style.display = 'block';
+            if (localStorage.getItem('isAdmin') === 'true') {
+                document.querySelector('.admin-button').style.display = 'block';
+            }
+        };
     </script>
     <style>
         body {
@@ -184,8 +564,95 @@
             flex-direction: column;
             background: #0f0c29;
             background: linear-gradient(to bottom, #0f0c29, #302b63, #24243e);
-            transition: background-color 0.3s;
-            cursor: default;
+            position: relative;
+            margin: 0;
+            padding: 0;
+            cursor: pointer;
+        }
+
+        /* Yıldızlar için arka plan */
+        body::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: transparent;
+            z-index: -1;
+            animation: twinkle 200s linear infinite;
+        }
+
+        @keyframes twinkle {
+            0% { background-position: 0 0; }
+            100% { background-position: 10000px 5000px; }
+        }
+
+        /* Gezegen animasyonları */
+        .planet {
+            position: absolute;
+            border-radius: 50%;
+            z-index: -1;
+            opacity: 0.7;
+            filter: blur(0.5px);
+        }
+
+        #sun {
+            width: 80px;
+            height: 80px;
+            background: radial-gradient(circle, #ffde00, #ff8c00);
+            box-shadow: 0 0 50px #ff8c00;
+            top: 20%;
+            left: 15%;
+            animation: pulse 8s infinite alternate;
+        }
+
+        #planet1 {
+            width: 30px;
+            height: 30px;
+            background: radial-gradient(circle, #4facfe, #00f2fe);
+            top: 50%;
+            left: 10%;
+            animation: orbit1 20s linear infinite;
+        }
+
+        #planet2 {
+            width: 20px;
+            height: 20px;
+            background: radial-gradient(circle, #a6c1ee, #fbc2eb);
+            top: 30%;
+            left: 80%;
+            animation: orbit2 25s linear infinite;
+        }
+
+        #planet3 {
+            width: 40px;
+            height: 40px;
+            background: radial-gradient(circle, #f093fb, #f5576c);
+            bottom: 20%;
+            right: 15%;
+            animation: orbit3 30s linear infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 0.8; }
+            50% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(1); opacity: 0.8; }
+        }
+
+        @keyframes orbit1 {
+            0% { transform: rotate(0deg) translateX(100px) rotate(0deg); }
+            100% { transform: rotate(360deg) translateX(100px) rotate(-360deg); }
+        }
+
+        @keyframes orbit2 {
+            0% { transform: rotate(0deg) translateX(150px) rotate(0deg); }
+            100% { transform: rotate(360deg) translateX(150px) rotate(-360deg); }
+        }
+
+        @keyframes orbit3 {
+            0% { transform: rotate(0deg) translateX(200px) rotate(0deg); }
+            100% { transform: rotate(360deg) translateX(200px) rotate(-360deg); }
         }
 
         .counter-box {
@@ -218,45 +685,193 @@
             transform: translateY(-2px);
         }
 
-        #game-score {
+        /* Oyun alanı */
+        #game-area {
             position: fixed;
-            top: 20px;
-            left: 20px;
-            font-size: 24px;
-            color: white;
-            background: rgba(0, 0, 0, 0.5);
-            padding: 10px 20px;
-            border-radius: 10px;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 12, 41, 0.9);
             z-index: 100;
         }
 
-        .click-circle {
+        /* Oyun UI */
+        .game-ui {
             position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            align-items: flex-end;
+        }
+
+        #score-display, #health-display {
+            font-size: 24px;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 8px 15px;
+            border-radius: 10px;
+            min-width: 100px;
+            text-align: center;
+        }
+
+        .cooldown-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 8px 15px;
+            border-radius: 10px;
+            min-width: 150px;
+        }
+
+        .cooldown-track {
+            flex-grow: 1;
+            height: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .cooldown-bar {
+            height: 100%;
+            background: linear-gradient(to right, #FFD700, #FF8C00);
+            width: 0%;
+        }
+
+        .controls-info {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            max-width: 300px;
+            z-index: 200;
+        }
+
+        .controls-info h3 {
+            margin-top: 0;
+            color: #FFD700;
+        }
+
+        .controls-info p {
+            margin: 8px 0;
+        }
+
+        /* Uzay gemisi */
+        #ship {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
             width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            transform: scale(0);
-            animation: clickAnimation 0.5s forwards;
-            z-index: 10;
+            height: 80px;
+            z-index: 101;
+            background: linear-gradient(to bottom, #4a90e2, #2d3748);
+            clip-path: polygon(
+                0% 30%, 
+                20% 0%, 
+                80% 0%, 
+                100% 30%,
+                80% 40%,
+                80% 100%,
+                60% 80%,
+                40% 80%,
+                20% 100%,
+                20% 40%
+            );
+            box-shadow: 0 0 20px rgba(74, 144, 226, 0.7);
+            transform: translateX(-50%);
         }
 
-        .score-effect {
+        /* Normal mermi */
+        .bullet {
+            position: fixed;
+            width: 4px;
+            height: 15px;
+            background: #00FFFF;
+            border-radius: 2px;
+            z-index: 102;
+            box-shadow: 0 0 10px #00FFFF;
+        }
+
+        /* Güçlü mermi */
+        .power-bullet {
+            position: fixed;
+            width: 8px;
+            height: 25px;
+            background: #FFD700;
+            border-radius: 4px;
+            z-index: 102;
+            box-shadow: 0 0 15px #FFD700;
+            animation: pulse-glow 0.5s infinite alternate;
+        }
+
+        @keyframes pulse-glow {
+            from { box-shadow: 0 0 10px #FFD700; }
+            to { box-shadow: 0 0 20px #FFD700, 0 0 30px #FFD700; }
+        }
+
+        /* Nuke efekti */
+        #nuke-effect {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, rgba(255,255,255,0.8) 0%, rgba(255,200,0,0) 70%);
+            z-index: 103;
+            display: none;
+            opacity: 0;
+            transition: all 0.5s ease-out;
+        }
+
+        /* Asteroidler */
+        .asteroid {
             position: absolute;
-            font-size: 20px;
-            font-weight: bold;
-            animation: scoreAnimation 1s forwards;
-            z-index: 10;
+            background: linear-gradient(to bottom right, #777, #333);
+            cursor: pointer;
+            z-index: 102;
+            box-shadow: inset -5px -5px 10px rgba(0,0,0,0.5);
         }
 
-        @keyframes clickAnimation {
-            0% { transform: scale(0); opacity: 0.5; }
-            50% { transform: scale(1.2); opacity: 1; }
-            100% { transform: scale(1); opacity: 0; }
+        .shape1 {
+            clip-path: polygon(
+                50% 0%, 70% 20%, 100% 30%, 
+                80% 50%, 100% 70%, 70% 80%, 
+                50% 100%, 30% 80%, 0% 70%, 
+                20% 50%, 0% 30%, 30% 20%
+            );
         }
 
-        @keyframes scoreAnimation {
-            0% { transform: translateY(0); opacity: 1; }
-            100% { transform: translateY(-50px); opacity: 0; }
+        .shape2 {
+            clip-path: polygon(
+                50% 0%, 60% 40%, 100% 50%, 
+                60% 60%, 50% 100%, 40% 60%, 
+                0% 50%, 40% 40%
+            );
+        }
+
+        .shape3 {
+            clip-path: polygon(
+                50% 0%, 80% 10%, 100% 35%, 
+                90% 60%, 100% 85%, 70% 90%, 
+                50% 100%, 30% 90%, 0% 85%, 
+                10% 60%, 0% 35%, 20% 10%
+            );
+        }
+
+        /* Patlama partikülleri */
+        .particle {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 103;
         }
 
         @keyframes fadeIn {
@@ -276,6 +891,34 @@
     </style>
 </head>
 <body>
+    <!-- Uzay animasyonları -->
+    <div id="sun" class="planet"></div>
+    <div id="planet1" class="planet"></div>
+    <div id="planet2" class="planet"></div>
+    <div id="planet3" class="planet"></div>
+
+    <!-- Yıldızlar -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const body = document.body;
+            for (let i = 0; i < 200; i++) {
+                const star = document.createElement('div');
+                star.style.position = 'absolute';
+                star.style.width = Math.random() * 3 + 'px';
+                star.style.height = star.style.width;
+                star.style.backgroundColor = 'white';
+                star.style.borderRadius = '50%';
+                star.style.opacity = Math.random();
+                star.style.left = Math.random() * 100 + '%';
+                star.style.top = Math.random() * 100 + '%';
+                star.style.zIndex = '-1';
+                star.style.animation = `twinkle ${Math.random() * 5 + 3}s infinite alternate`;
+                body.appendChild(star);
+            }
+        });
+    </script>
+
+    <!-- Ana içerik -->
     <div class="counter-box">
         <h1>Bu siteye toplamda <span id="total-visits">0</span> kişi uğradı.</h1>
         <h2>Ve sen <span id="your-number">0</span>. kişi olarak giriş yaptın!</h2>
