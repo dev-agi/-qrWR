@@ -31,7 +31,6 @@
             if (password === "admin123") {
                 localStorage.setItem('isAdmin', 'true');
                 document.querySelector('.admin-button').style.display = 'block';
-                document.querySelector('.user-button').style.display = 'block';
                 console.log("Admin modu aktif!");
                 return "Admin modu aktif!";
             } else {
@@ -94,15 +93,6 @@
                 });
             }
         };
-
-        // Kullanıcının kendi ziyaret numarasını sıfırla
-        window.resetUserVisit = function() {
-            if (confirm("Ziyaret numaranızı sıfırlamak istediğinize emin misiniz?\n\nBu işlem sonucunda yeni bir ziyaret numarası alacaksınız.")) {
-                localStorage.removeItem(VISIT_KEY);
-                alert("Ziyaret numaranız sıfırlandı. Sayfa yenileniyor...");
-                location.reload();
-            }
-        };
     </script>
     <style>
         body {
@@ -137,26 +127,8 @@
             font-size: 16px;
             margin: 5px;
         }
-        .user-button {
-            display: none;
-            padding: 10px 20px;
-            background: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-            font-size: 16px;
-            margin: 5px;
-        }
         .admin-button:hover {
             background: darkred;
-        }
-        .user-button:hover {
-            background: darkgreen;
-        }
-        .button-container {
-            display: flex;
-            flex-direction: column;
         }
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(-20px); }
@@ -173,23 +145,12 @@
         <h1>Bu siteye toplamda <span id="total-visits">0</span> kişi uğradı.</h1>
         <h2>Ve sen <span id="your-number">0</span>. kişi olarak giriş yaptın!</h2>
     </div>
-    <div class="button-container">
-        <button class="user-button" onclick="resetUserVisit()">Ziyaret Numaramı Sıfırla</button>
-        <button class="admin-button" onclick="resetCounter()">Tüm Sayacı Sıfırla (Admin)</button>
-    </div>
+    <button class="admin-button" onclick="resetCounter()">Tüm Sayacı Sıfırla (Admin)</button>
     <script>
         // Sayfa yüklendiğinde admin kontrolü yap
         document.addEventListener('DOMContentLoaded', function() {
             if (localStorage.getItem('isAdmin') === 'true') {
                 document.querySelector('.admin-button').style.display = 'block';
-                document.querySelector('.user-button').style.display = 'block';
-            } else {
-                document.querySelector('.user-button').style.display = 'block';
-            }
-            
-            // Kullanıcı numarası yoksa butonu gizle
-            if (!localStorage.getItem(VISIT_KEY)) {
-                document.querySelector('.user-button').style.display = 'none';
             }
         });
     </script>
