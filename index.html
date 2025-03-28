@@ -104,42 +104,42 @@
         let showControls = false;
         
         // Kontroller
-        document.addEventListener('keydown', (e) => {
-            if (!gameActive) return;
-            
-            keys[e.key] = true;
-            
-            // Nuke (Alt tuşu)
-            if (e.key === 'Alt' && Date.now() - lastNukeTime > 480000 && health > 1) {
-                activateNuke();
-                return;
-            }
-            
-            // Space tuşu kontrolü
-            if (e.key === ' ') {
-                const now = Date.now();
-                
-                // Normal ateş
-                if (now - lastShot > 150) {
-                    shoot();
-                    lastShot = now;
-                }
-                
-                // Çift basım kontrolü (güçlü mermi)
-                if (now - lastSpacePress < 300 && now - lastPowerShot > 25000) {
-                    shootPowerBullet();
-                    lastPowerShot = now;
-                    updatePowerCooldown();
-                }
-                lastSpacePress = now;
-            }
-            
-            // Kontrol bilgilerini göster/gizle
-            if (e.key === 'Escape') {
-                showControls = !showControls;
-                document.getElementById('controls-info').style.display = showControls ? 'block' : 'none';
-            }
-        });
+document.addEventListener('keydown', (e) => {
+    if (!gameActive) return;
+
+    keys[e.key] = true;
+
+    // Nuke (Shift tuşu)
+    if (e.key === 'Shift' && Date.now() - lastNukeTime > 480000 && health > 1) {
+        activateNuke();
+        return;
+    }
+
+    // Ctrl tuşu kontrolü
+    if (e.ctrlKey) {
+        const now = Date.now();
+
+        // Normal ateş
+        if (now - lastShot > 150) {
+            shoot();
+            lastShot = now;
+        }
+
+        // Çift basım kontrolü (güçlü mermi)
+        if (now - lastCtrlPress < 300 && now - lastPowerShot > 25000) {
+            shootPowerBullet();
+            lastPowerShot = now;
+            updatePowerCooldown();
+        }
+        lastCtrlPress = now;
+    }
+
+    // Kontrol bilgilerini göster/gizle
+    if (e.key === 'Escape') {
+        showControls = !showControls;
+        document.getElementById('controls-info').style.display = showControls ? 'block' : 'none';
+    }
+});
         
         document.addEventListener('keyup', (e) => {
             keys[e.key] = false;
