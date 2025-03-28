@@ -6,12 +6,11 @@
     <title>Ziyaretçi Sayacı</title>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-        import { getDatabase, ref, get, set, runTransaction } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
+        import { getDatabase, ref, get, set, remove } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyB-eq-kva0L2BBbNI7ulANCnRwTT39BqXs",
             authDomain: "counter-ddf61.firebaseapp.com",
-            databaseURL: "https://counter-ddf61-default-rtdb.firebaseio.com",
             projectId: "counter-ddf61",
             storageBucket: "counter-ddf61.appspot.com",
             messagingSenderId: "41522309116",
@@ -23,107 +22,75 @@
         const db = getDatabase(app);
         const counterRef = ref(db, "visitor_count");
         const visitorsRef = ref(db, "visitors");
-        const firstVisitorRef = ref(db, "first_visitor");
 
-        // Daha güvenli ID oluşturma
-        const VISIT_KEY = 'visit_counter_'+window.location.hostname.replace(/[^a-z0-9]/gi, '_');
-        const DEVICE_ID_KEY = 'device_id_'+window.location.hostname.replace(/[^a-z0-9]/gi, '_');
+        const VISIT_KEY = 'visit_number';
+        let userVisitNumber = localStorage.getItem(VISIT_KEY);
 
-        // Cihaz ID'si oluştur veya getir
-        function getDeviceId() {
-            let deviceId = localStorage.getItem(DEVICE_ID_KEY);
-            if (!deviceId) {
-                deviceId = 'd_' + Math.random().toString(36).substr(2, 9) + 
-                          Date.now().toString(36);
-                localStorage.setItem(DEVICE_ID_KEY, deviceId);
-            }
-            return deviceId;
-        }
-
-        // Admin fonksiyonu
+        // Admin fonksiyonunu global yapalım
         window.admin = function(password) {
             if (password === "admin123") {
                 localStorage.setItem('isAdmin', 'true');
                 document.querySelector('.admin-button').style.display = 'block';
-                console.log("Admin modu aktif! resetCounter() kullanabilirsiniz");
+                console.log("Admin modu aktif!");
                 return "Admin modu aktif!";
+            } else {
+                console.log("Hatalı şifre!");
+                return "Hatalı şifre!";
             }
-            return "Hatalı şifre!";
         };
 
-        // Sayacı başlat
-        initCounter();
-
-        async function initCounter() {
-            const deviceId = getDeviceId();
-            let isFirstVisitor = false;
-
-            // İlk ziyaretçiyi kontrol et
-            const firstVisitorSnap = await get(firstVisitorRef);
-            if (!firstVisitorSnap.exists()) {
-                isFirstVisitor = true;
-                await set(firstVisitorRef, {
-                    deviceId: deviceId,
-                    timestamp: Date.now()
+        get(counterRef).then((snapshot) => {
+            let totalVisits = snapshot.exists() ? snapshot.val() : 0;
+            document.getElementById('total-visits').textContent = totalVisits;
+            
+            if (!userVisitNumber) {
+                totalVisits++;
+                set(counterRef, totalVisits).then(() => {
+                    // Kullanıcıyı ziyaretçi listesine ekle
+                    set(ref(db, `visitors/${totalVisits}`), {
+                        timestamp: Date.now()
+                    }).then(() => {
+                        localStorage.setItem(VISIT_KEY, totalVisits);
+                        document.getElementById('your-number').textContent = totalVisits;
+                        document.getElementById('your-number').style.color = "#4CAF50";
+                    });
+                });
+            } else {
+                // Kullanıcının ziyaret bilgisini kontrol et
+                get(ref(db, `visitors/${userVisitNumber}`)).then((visitorSnap) => {
+                    if (!visitorSnap.exists()) {
+                        // Eğer veritabanında kayıt yoksa, yeni bir numara ver
+                        get(counterRef).then((newSnap) => {
+                            let newTotal = newSnap.exists() ? newSnap.val() : 0;
+                            newTotal++;
+                            set(counterRef, newTotal).then(() => {
+                                set(ref(db, `visitors/${newTotal}`), {
+                                    timestamp: Date.now()
+                                }).then(() => {
+                                    localStorage.setItem(VISIT_KEY, newTotal);
+                                    document.getElementById('your-number').textContent = newTotal;
+                                    document.getElementById('your-number').style.color = "#4CAF50";
+                                });
+                            });
+                        });
+                    } else {
+                        document.getElementById('your-number').textContent = userVisitNumber;
+                        document.getElementById('your-number').style.color = "#4CAF50";
+                    }
                 });
             }
+        });
 
-            // Sayaç işlemleri
-            const result = await runTransaction(counterRef, (currentCount) => {
-                return (currentCount || 0) + 1;
-            });
-
-            if (result.committed) {
-                const visitNumber = result.snapshot.val();
-                
-                // Ziyaretçi kaydını kontrol et
-                const visitorSnap = await get(ref(db, `visitors/${deviceId}`));
-                if (!visitorSnap.exists()) {
-                    await set(ref(db, `visitors/${deviceId}`), {
-                        visitNumber: visitNumber,
-                        timestamp: Date.now(),
-                        isFirst: isFirstVisitor,
-                        visits: 1
+        // Tüm sayacı sıfırla (admin)
+        window.resetCounter = function() {
+            if (confirm("TÜM ziyaretçi verilerini sıfırlamak istediğinize emin misiniz?\n\nBu işlem GERİ ALINAMAZ!")) {
+                set(counterRef, 0).then(() => {
+                    remove(visitorsRef).then(() => {
+                        localStorage.removeItem(VISIT_KEY);
+                        alert("Tüm sayaç ve ziyaretçi verileri sıfırlandı!");
+                        location.reload();
                     });
-                    
-                    localStorage.setItem(VISIT_KEY, visitNumber);
-                    updateDisplay(visitNumber, isFirstVisitor);
-                } else {
-                    // Bu cihaz daha önce ziyaret etmiş
-                    const existingNumber = visitorSnap.val().visitNumber;
-                    await set(ref(db, `visitors/${deviceId}/visits`), 
-                        visitorSnap.val().visits + 1);
-                    
-                    updateDisplay(existingNumber, visitorSnap.val().isFirst);
-                }
-            }
-        }
-
-        function updateDisplay(count, isFirstVisitor) {
-            document.getElementById('total-visits').textContent = count;
-            document.getElementById('your-number').textContent = count;
-            
-            if (isFirstVisitor) {
-                document.getElementById('your-number').textContent += " (İLK ZİYARETÇİ)";
-                document.getElementById('your-number').style.color = "#00FF00";
-            } else {
-                document.getElementById('your-number').style.color = "#FFD700";
-            }
-        }
-
-        // Sıfırlama fonksiyonu
-        window.resetCounter = async function() {
-            if (confirm("TÜM verileri sıfırlamak istediğinize emin misiniz?")) {
-                const adminPass = prompt("Admin şifresini girin:");
-                if (adminPass === "admin123") {
-                    await set(counterRef, 0);
-                    await set(firstVisitorRef, null);
-                    localStorage.removeItem(VISIT_KEY);
-                    alert("Sayaç sıfırlandı! Artık ilk ziyaretçi olabilirsiniz.");
-                    location.reload();
-                } else {
-                    alert("Hatalı şifre!");
-                }
+                });
             }
         };
     </script>
@@ -168,6 +135,7 @@
             to { opacity: 1; transform: translateY(0); }
         }
         #your-number {
+            color: #FFD700;
             font-weight: bold;
         }
     </style>
@@ -179,6 +147,7 @@
     </div>
     <button class="admin-button" onclick="resetCounter()">Tüm Sayacı Sıfırla (Admin)</button>
     <script>
+        // Sayfa yüklendiğinde admin kontrolü yap
         document.addEventListener('DOMContentLoaded', function() {
             if (localStorage.getItem('isAdmin') === 'true') {
                 document.querySelector('.admin-button').style.display = 'block';
