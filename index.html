@@ -379,20 +379,22 @@ document.addEventListener('keydown', (e) => {
             });
         }
         
-        function shootPowerBullet() {
-            const bullet = document.createElement('div');
-            bullet.className = 'power-bullet';
-            bullet.style.left = `${shipX + 25}px`; // Gemi merkezinden ateş
-            bullet.style.bottom = '80px';
-            
-            document.getElementById('game-area').appendChild(bullet);
-            
-            powerBullets.push({
-                element: bullet,
-                x: shipX + 25,
-                y: window.innerHeight - 80
-            });
-        }
+function shootPowerBullet() {
+    console.log("Güçlü mermi ateşlendi!");
+
+    const bullet = document.createElement('div');
+    bullet.className = 'power-bullet';
+    bullet.style.left = `${shipX + 25}px`;
+    bullet.style.bottom = '80px';
+
+    document.getElementById('game-area').appendChild(bullet);
+
+    powerBullets.push({
+        element: bullet,
+        x: shipX + 25,
+        y: window.innerHeight - 80
+    });
+}
         
         function updateAsteroids() {
             for (let i = asteroids.length - 1; i >= 0; i--) {
@@ -915,7 +917,7 @@ document.addEventListener('keydown', (e) => {
                 star.style.opacity = Math.random();
                 star.style.left = Math.random() * 100 + '%';
                 star.style.top = Math.random() * 100 + '%';
-                star.style.zIndex = '-1';
+                star.style.zIndex = '0';
                 star.style.animation = `twinkle ${Math.random() * 5 + 3}s infinite alternate`;
                 body.appendChild(star);
             }
